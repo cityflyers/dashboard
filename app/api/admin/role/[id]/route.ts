@@ -4,9 +4,10 @@ import { cookies } from 'next/headers'
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = createRouteHandlerClient({ cookies })
     
     const { data: { session } } = await supabase.auth.getSession()
@@ -37,7 +38,7 @@ export async function PATCH(
     const { data: profile, error } = await supabase
       .from('profiles')
       .update({ role, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
