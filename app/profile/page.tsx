@@ -2,248 +2,194 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth/auth-context'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Save } from 'lucide-react'
+import { Navigation } from '@/components/layout/navigation'
+import { Button, Input, Text, Card, Grid, Spacer, useToasts } from '@geist-ui/core'
+import { supabase } from '@/lib/supabase/client'
 
 export default function ProfilePage() {
   const { profile, loading, refreshProfile } = useAuth()
-  const [isEditing, setIsEditing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  
+  const [updating, setUpdating] = useState(false)
   const [formData, setFormData] = useState({
-    first_name: profile?.first_name || '',
-    last_name: profile?.last_name || '',
-    dob: profile?.dob || '',
+    firstName: profile?.first_name || '',
+    lastName: profile?.last_name || '',
     mobile: profile?.mobile || '',
     address: profile?.address || '',
     city: profile?.city || '',
     post: profile?.post || '',
     country: profile?.country || ''
   })
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  const handleSave = async () => {
-    setIsSaving(true)
-    setMessage(null)
-
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update profile')
-      }
-
-      await refreshProfile()
-      setIsEditing(false)
-      setMessage({ type: 'success', text: 'Profile updated successfully!' })
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to update profile' 
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleCancel = () => {
-    setFormData({
-      first_name: profile?.first_name || '',
-      last_name: profile?.last_name || '',
-      dob: profile?.dob || '',
-      mobile: profile?.mobile || '',
-      address: profile?.address || '',
-      city: profile?.city || '',
-      post: profile?.post || '',
-      country: profile?.country || ''
-    })
-    setIsEditing(false)
-    setMessage(null)
-  }
+  
+  const { setToast } = useToasts()
 
   if (loading) {
-    return <div className="container mx-auto px-4 py-8">Loading...</div>
+    return (
+      <div>
+        <Navigation />
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <Text>Loading...</Text>
+        </div>
+      </div>
+    )
   }
 
   if (!profile) {
-    return <div className="container mx-auto px-4 py-8">Profile not found</div>
+    return (
+      <div>
+        <Navigation />
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <Text>Profile not found</Text>
+        </div>
+      </div>
+    )
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUpdating(true)
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          mobile: formData.mobile,
+          address: formData.address || null,
+          city: formData.city || null,
+          post: formData.post || null,
+          country: formData.country || null
+        })
+        .eq('id', profile.id)
+      
+      if (error) throw error
+      
+      await refreshProfile()
+      setToast({ text: 'Profile updated successfully!', type: 'success' })
+    } catch (error: any) {
+      setToast({ text: error.message || 'Update failed', type: 'error' })
+    } finally {
+      setUpdating(false)
+    }
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Profile</h1>
-          <p className="text-muted-foreground">Manage your personal information</p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-            <CardDescription>
-              Update your profile details and contact information
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {message && (
-              <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-                <AlertDescription>{message.text}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">First Name</Label>
-                <Input
-                  id="first_name"
-                  value={formData.first_name}
-                  onChange={(e) => handleInputChange('first_name', e.target.value)}
-                  disabled={!isEditing}
-                />
+    <div>
+      <Navigation />
+      
+      <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+        <Text h2 style={{ marginBottom: '2rem' }}>Profile Settings</Text>
+        
+        <Grid.Container gap={2}>
+          <Grid xs={24} md={12}>
+            <Card style={{ padding: '1.5rem', height: '100%' }}>
+              <Text h4 style={{ marginBottom: '1rem' }}>Account Information</Text>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <Text><strong>Email:</strong> {profile.email}</Text>
+                <Text><strong>Date of Birth:</strong> {new Date(profile.dob).toLocaleDateString()}</Text>
+                <Text><strong>Category:</strong> {profile.category}</Text>
+                <Text><strong>Role:</strong> {profile.role}</Text>
+                <Text><strong>Member Since:</strong> {new Date(profile.created_at).toLocaleDateString()}</Text>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Last Name</Label>
+            </Card>
+          </Grid>
+          
+          <Grid xs={24} md={12}>
+            <Card style={{ padding: '1.5rem' }}>
+              <Text h4 style={{ marginBottom: '1rem' }}>Update Profile</Text>
+              
+              <form onSubmit={handleUpdate}>
+                <Grid.Container gap={1}>
+                  <Grid xs={12}>
+                    <Input
+                      placeholder="First Name"
+                      width="100%"
+                      value={formData.firstName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, firstName: e.target.value })}
+                      required
+                      {...({} as any)}
+                    />
+                  </Grid>
+                  <Grid xs={12}>
+                    <Input
+                      placeholder="Last Name"
+                      width="100%"
+                      value={formData.lastName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, lastName: e.target.value })}
+                      required
+                      {...({} as any)}
+                    />
+                  </Grid>
+                </Grid.Container>
+                
+                <Spacer h={1} />
+                
                 <Input
-                  id="last_name"
-                  value={formData.last_name}
-                  onChange={(e) => handleInputChange('last_name', e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                value={profile.email}
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="dob">Date of Birth</Label>
-                <Input
-                  id="dob"
-                  type="date"
-                  value={formData.dob}
-                  onChange={(e) => handleInputChange('dob', e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mobile">Mobile</Label>
-                <Input
-                  id="mobile"
+                  placeholder="Mobile"
+                  htmlType="tel"
+                  width="100%"
                   value={formData.mobile}
-                  onChange={(e) => handleInputChange('mobile', e.target.value)}
-                  disabled={!isEditing}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, mobile: e.target.value })}
+                  required
+                  {...({} as any)}
                 />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
+                
+                <Spacer h={1} />
+                
                 <Input
-                  id="category"
-                  value={profile.category}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Input
-                  id="role"
-                  value={profile.role}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-muted-foreground">Address Information</h3>
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
+                  placeholder="Address"
+                  width="100%"
                   value={formData.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  disabled={!isEditing}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, address: e.target.value })}
+                  {...({} as any)}
                 />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="post">Post Code</Label>
-                  <Input
-                    id="post"
-                    value={formData.post}
-                    onChange={(e) => handleInputChange('post', e.target.value)}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Input
-                    id="country"
-                    value={formData.country}
-                    onChange={(e) => handleInputChange('country', e.target.value)}
-                    disabled={!isEditing}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-4">
-              {!isEditing ? (
-                <Button onClick={() => setIsEditing(true)}>
-                  Edit Profile
+                
+                <Spacer h={1} />
+                
+                <Grid.Container gap={1}>
+                  <Grid xs={8}>
+                    <Input
+                      placeholder="City"
+                      width="100%"
+                      value={formData.city}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, city: e.target.value })}
+                      {...({} as any)}
+                    />
+                  </Grid>
+                  <Grid xs={8}>
+                    <Input
+                      placeholder="Postal Code"
+                      width="100%"
+                      value={formData.post}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, post: e.target.value })}
+                      {...({} as any)}
+                    />
+                  </Grid>
+                  <Grid xs={8}>
+                    <Input
+                      placeholder="Country"
+                      width="100%"
+                      value={formData.country}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, country: e.target.value })}
+                      {...({} as any)}
+                    />
+                  </Grid>
+                </Grid.Container>
+                
+                <Spacer h={2} />
+                
+                <Button
+                  type="success"
+                  htmlType="submit"
+                  width="100%"
+                  loading={updating}
+                  {...({} as any)}
+                >
+                  Update Profile
                 </Button>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={handleCancel}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                  </Button>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </form>
+            </Card>
+          </Grid>
+        </Grid.Container>
       </div>
     </div>
   )

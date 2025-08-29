@@ -1,15 +1,15 @@
-import './globals.css'
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import { ThemeProvider } from '@/components/providers/theme-provider'
-import { AuthProvider } from '@/lib/auth/auth-context'
-import { Navbar } from '@/components/layout/navbar'
-
-const inter = Inter({ subsets: ['latin'] })
+import { GeistSans } from 'geist/font/sans'
+import { ClientProviders } from '@/components/providers/client-providers'
+import '@/lib/utils/suppress-warnings'
+import './globals.css'
 
 export const metadata: Metadata = {
   title: 'AuthApp - Secure Authentication',
   description: 'A secure authentication app with role-based permissions',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -18,21 +18,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <div className="min-h-screen bg-background">
-              <Navbar />
-              <main>{children}</main>
-            </div>
-          </AuthProvider>
-        </ThemeProvider>
+    <html lang="en" className={GeistSans.className}>
+      <body>
+        <ClientProviders>
+          <main>{children}</main>
+        </ClientProviders>
       </body>
     </html>
   )
